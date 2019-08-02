@@ -83,7 +83,7 @@ set $SHOWCPUREGISTERS = 1
 # set to 1 to enable display of stack (default is 0)
 set $SHOWSTACK = 1
 # set to 1 to enable display of data window (default is 0)
-set $SHOWDATAWIN = 0
+set $SHOWDATAWIN = 1
 # set to 0 to disable colored display of changed registers
 set $SHOWREGCHANGES = 1
 # set to 1 so skip command to execute the instruction at the new location
@@ -120,13 +120,14 @@ set $SHOW_NEST_INSN = 0
 set $CONTEXTSIZE_STACK = 6 
 set $CONTEXTSIZE_DATA  = 8
 set $CONTEXTSIZE_CODE  = 8
-
+set $data_addr = 0x400000
 # __________________end gdb options_________________
 #
 
 # __________________color functions_________________
 #
 # color codes
+
 set $BLACK = 0
 set $RED = 1
 set $GREEN = 2
@@ -138,8 +139,9 @@ set $WHITE = 7
 
 # CHANGME: If you want to modify the "theme" change the colors here
 #          or just create a ~/.gdbinit.local and set these variables there
+
 set $COLOR_REGNAME = $GREEN
-set $COLOR_REGVAL = $BLACK
+set $COLOR_REGVAL = $CYAN
 set $COLOR_REGVAL_MODIFIED  = $RED
 set $COLOR_SEPARATOR = $BLUE
 set $COLOR_CPUFLAGS = $RED
@@ -1390,6 +1392,7 @@ end
 
 
 # __________hex/ascii dump an address_________
+
 define ascii_char
     if $argc != 1
         help ascii_char
@@ -1495,6 +1498,7 @@ end
 
 
 # _______________data window__________________
+
 define ddump
     if $argc != 1
         help ddump
@@ -1509,7 +1513,6 @@ define ddump
                 printf "[0x%04X:0x%08X]", $ds, $data_addr
             end
         end
-
     	color $COLOR_SEPARATOR
     	printf "------------------------"
         printf "-------------------------------"
@@ -1539,7 +1542,6 @@ define dd
         help dd
     else
         set $data_addr = $arg0
-#        ddump 0x10
         ddump 3 
     end
 end
@@ -1580,20 +1582,6 @@ define datawin
                     end
                 end
             end
-        else
-            if ((($esi >> 0x18) == 0x40) || (($esi >> 0x18) == 0x08) || (($esi >> 0x18) == 0xBF))
-                set $data_addr = $esi
-            else
-                if ((($edi >> 0x18) == 0x40) || (($edi >> 0x18) == 0x08) || (($edi >> 0x18) == 0xBF))
-                    set $data_addr = $edi
-                else
-                    if ((($eax >> 0x18) == 0x40) || (($eax >> 0x18) == 0x08) || (($eax >> 0x18) == 0xBF))
-                        set $data_addr = $eax
-                    else
-                        set $data_addr = $esp
-                    end
-                end
-            end
         end
     end
     ddump $CONTEXTSIZE_DATA
@@ -1610,6 +1598,7 @@ end
 ################################
 # Huge mess going here :) HAHA #
 ################################
+
 define dumpjump
     if $ARM == 1
         ## Most ARM and Thumb instructions are conditional!
@@ -1627,7 +1616,6 @@ define dumpjump
         else
             set $_t_flag = 0
         end
-
         if $_t_flag == 0
 	        set $_lastbyte = *(unsigned char *)($pc+3)
 	        #set $_bit31 = ($_lastbyte >> 7) & 1
@@ -1651,7 +1639,6 @@ define dumpjump
         set $_byte2 = *(unsigned char *)($pc+1)
         ## and now check what kind of jump we have (in case it's a jump instruction)
         ## I changed the flags routine to save the flag into a variable, so we don't need to repeat the process :) (search for "define flags")
-
         ## opcode 0x77: JA, JNBE (jump if CF=0 and ZF=0)
         ## opcode 0x0F87: JNBE, JA
         if ( ($_byte1 == 0x77) || ($_byte1 == 0x0F && $_byte2 == 0x87) )
@@ -2081,12 +2068,10 @@ define context
           		set $objectivec = $eax
       	    	set $displayobjectivec = 1
     	    end
-
         	if ($__byte == 0x4245489)
          		set $objectivec = $edx
      	    	set $displayobjectivec = 1
     	    end
-
         	if ($__byte == 0x4244c89)
          		set $objectivec = $ecx
      	    	set $displayobjectivec = 1
@@ -2127,11 +2112,9 @@ define context
     end
     color_reset
 # and this is the end of this little crap
-
     if $SHOWDATAWIN == 1
         datawin
     end
-
     color $COLOR_SEPARATOR
     printf "--------------------------------------------------------------------------"
     if ($64BITS == 1)
@@ -2222,24 +2205,27 @@ Syntax: n <NUM>
 | This is alias for nexti.
 end
 
-define N
+define M
 	next
 	if $argc >=1
-		help N
+		help M
 	end
 end
-document N
-Syntax: N
-| step over one line, if the source line call a subroutine,
-| did not enter it
+document M
+Syntax: M
+| step one source line 
+| if the source line call a subroutine, it will step over it
+| this is alias for next.
+end
+
 
 define go
     if $argc == 0
         stepi
     end
     if $argc == 1
-        stepi $arg0
-    end
+    	stepi $arg0
+	end
     if $argc > 1
         help go
     end
@@ -2477,6 +2463,7 @@ end
 
 
 # FIXME: ARM
+
 define skip
 	x/2i $pc
 	set $instruction_size = (int)($_ - $pc)
@@ -3978,3 +3965,4 @@ end
 #
 #   Version 2
 #     Radix bugfix by elaine
+# vim:set foldmethod=expr :
