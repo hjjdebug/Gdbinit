@@ -81,7 +81,7 @@ set $SHOWOBJECTIVEC = 1
 # set to 0 to remove display of cpu registers (default is 1)
 set $SHOWCPUREGISTERS = 1
 # set to 1 to enable display of stack (default is 0)
-set $SHOWSTACK = 0
+set $SHOWSTACK = 1
 # set to 1 to enable display of data window (default is 0)
 set $SHOWDATAWIN = 0
 # set to 0 to disable colored display of changed registers
@@ -95,7 +95,7 @@ set $SKIPSTEP = 1
 # show the ARM opcodes - change to 0 if you don't want such thing (in x/i command)
 set $ARMOPCODES = 1
 # x86 disassembly flavor: 0 for Intel, 1 for AT&T
-set $X86FLAVOR = 0
+set $X86FLAVOR = 1
 # use colorized output or not
 set $USECOLOR = 1
 # to use with remote KDP
@@ -117,7 +117,7 @@ set width 0
 set $SHOW_CONTEXT = 1
 set $SHOW_NEST_INSN = 0
 
-set $CONTEXTSIZE_STACK = 6
+set $CONTEXTSIZE_STACK = 6 
 set $CONTEXTSIZE_DATA  = 8
 set $CONTEXTSIZE_CODE  = 8
 
@@ -1539,7 +1539,8 @@ define dd
         help dd
     else
         set $data_addr = $arg0
-        ddump 0x10
+#        ddump 0x10
+        ddump 3 
     end
 end
 document dd
@@ -2202,6 +2203,7 @@ end
 
 
 # _______________process control______________
+
 define n
     if $argc == 0
         nexti
@@ -2220,6 +2222,16 @@ Syntax: n <NUM>
 | This is alias for nexti.
 end
 
+define N
+	next
+	if $argc >=1
+		help N
+	end
+end
+document N
+Syntax: N
+| step over one line, if the source line call a subroutine,
+| did not enter it
 
 define go
     if $argc == 0
@@ -2299,6 +2311,7 @@ end
 #### WARNING ! WARNING !!
 #### More more messy stuff starting !!!
 #### I was thinking about how to do this and then it ocurred me that it could be as simple as this ! :)
+
 define stepoframework
     if $ARM == 1
         # bl and bx opcodes
@@ -2360,7 +2373,6 @@ define stepoframework
             # 32 bits instructions in Thumb are divided into two half words
         	set $_hw1 = *(unsigned short*)($pc)
         	set $_hw2 = *(unsigned short*)($pc+2)
-	
         	# bl/blx (immediate)
         	# hw1: bits 15-11: 1 1 1 1 0
         	# hw2: bits 15-14: 1 1 ; BL bit 12: 1 ; BLX bit 12: 0
@@ -2650,6 +2662,7 @@ end
 
 
 # Overflow (V), bit 28
+
 define cfv
     if $ARM == 1
     	set $tempflag = $cpsr->v
@@ -2672,11 +2685,11 @@ end
 # armv7 has other nops
 # FIXME: make sure that the interval fits the 32bits address for arm and 16bits for thumb
 # status: works, fixme
+
 define nop
     if ($argc > 2 || $argc == 0)
         help nop
     end
-  
     if $ARM == 1
         if ($argc == 1)
             if ($cpsr->t &1)
@@ -2725,7 +2738,6 @@ define null
     if ( $argc >2 || $argc == 0)
         help null
     end
- 
     if ($argc == 1)
 	    set *(unsigned char *)$arg0 = 0
     else
@@ -2742,6 +2754,7 @@ Syntax: null ADDR1 [ADDR2]
 end
 
 # FIXME: thumb breakpoint ?
+
 define int3
     if $argc != 1
         help int3
@@ -2790,7 +2803,6 @@ define patch
     set $patchaddr = $arg0
     set $patchbytes = $arg1
     set $patchsize = $arg2
-
     if ($patchsize == 1)
         set *(unsigned char*)$patchaddr = $patchbytes
     end
@@ -2819,6 +2831,7 @@ Syntax: patch address bytes size
 end
 
 # ____________________cflow___________________
+
 define print_insn_type
     if $argc != 1
         help print_insn_type
@@ -2919,11 +2932,9 @@ define step_to_call
     set $_saved_ctx = $SHOW_CONTEXT
     set $SHOW_CONTEXT = 0
     set $SHOW_NEST_INSN = 0
- 
     set logging file /dev/null
     set logging redirect on
     set logging on
- 
     set $_cont = 1
     while ($_cont > 0)
         stepi
@@ -2932,25 +2943,19 @@ define step_to_call
             set $_cont = 0
         end
     end
-
     set logging off
-
     if ($_saved_ctx > 0)
         context
     end
-
     set $SHOW_CONTEXT = $_saved_ctx
     set $SHOW_NEST_INSN = 0
- 
     set logging file ~/gdb.txt
     set logging redirect off
     set logging on
- 
     printf "step_to_call command stopped at:\n  "
     x/i $pc
     printf "\n"
     set logging off
-
 end
 document step_to_call
 Syntax: step_to_call
@@ -2961,21 +2966,17 @@ end
 
 
 define trace_calls
-
     printf "Tracing...please wait...\n"
-
     set $_saved_ctx = $SHOW_CONTEXT
     set $SHOW_CONTEXT = 0
     set $SHOW_NEST_INSN = 0
     set $_nest = 1
     set listsize 0
-  
     set logging overwrite on
     set logging file ~/gdb_trace_calls.txt
     set logging on
     set logging off
     set logging overwrite off
-
     while ($_nest > 0)
         get_insn_type $pc
         # handle nesting
@@ -2991,7 +2992,6 @@ define trace_calls
             set logging file ~/gdb_trace_calls.txt
             set logging redirect off
             set logging on
-
             set $x = $_nest - 2
             while ($x > 0)
                 printf "\t"
@@ -2999,7 +2999,6 @@ define trace_calls
             end
             x/i $pc
         end
-
         set logging off
         set logging file /dev/null
         set logging redirect on
@@ -3008,10 +3007,8 @@ define trace_calls
         set logging redirect off
         set logging off
     end
-
     set $SHOW_CONTEXT = $_saved_ctx
     set $SHOW_NEST_INSN = 0
- 
     printf "Done, check ~/gdb_trace_calls.txt\n"
 end
 document trace_calls
@@ -3022,9 +3019,7 @@ end
 
 
 define trace_run
- 
     printf "Tracing...please wait...\n"
-
     set $_saved_ctx = $SHOW_CONTEXT
     set $SHOW_CONTEXT = 0
     set $SHOW_NEST_INSN = 1
@@ -3033,9 +3028,7 @@ define trace_run
     set logging redirect on
     set logging on
     set $_nest = 1
-
     while ( $_nest > 0 )
-
         get_insn_type $pc
         # jmp, jcc, or cll
         if ($INSN_TYPE == 3)
@@ -3048,14 +3041,11 @@ define trace_run
         end
         stepi
     end
-
     printf "\n"
-
     set $SHOW_CONTEXT = $_saved_ctx
     set $SHOW_NEST_INSN = 0
     set logging redirect off
     set logging off
-
     # clean up trace file
     shell  grep -v ' at ' ~/gdb_trace_run.txt > ~/gdb_trace_run.1
     shell  grep -v ' in ' ~/gdb_trace_run.1 > ~/gdb_trace_run.txt
@@ -3069,15 +3059,11 @@ Syntax: trace_run
 end
 
 define entry_point
-	
 	set logging redirect on
 	set logging file /tmp/gdb-entry_point
 	set logging on
-
 	info files
-
 	set logging off
-
 	shell entry_point="$(/usr/bin/grep 'Entry point:' /tmp/gdb-entry_point | /usr/bin/awk '{ print $3 }')"; echo "$entry_point"; echo 'set $entry_point_address = '"$entry_point" > /tmp/gdb-entry_point
 	source /tmp/gdb-entry_point
     shell /bin/rm -f /tmp/gdb-entry_point
@@ -3097,17 +3083,13 @@ Syntax: break_entrypoint
 end
 
 define objc_symbols
-
 	set logging redirect on
 	set logging file /tmp/gdb-objc_symbols
 	set logging on
-
 	info target
-
 	set logging off
     # XXX: define paths for objc-symbols and SymTabCreator
 	shell target="$(/usr/bin/head -1 /tmp/gdb-objc_symbols | /usr/bin/head -1 | /usr/bin/awk -F '"' '{ print $2 }')"; objc-symbols "$target" | SymTabCreator -o /tmp/gdb-symtab
-
 	set logging on
 	add-symbol-file /tmp/gdb-symtab
 	set logging off
@@ -3155,13 +3137,13 @@ end
 
 
 # ____________________misc____________________
+
 define hook-stop
     if (sizeof(void*) == 8)
         set $64BITS = 1
     else
         set $64BITS = 0
     end
-
     if ($KDP64BITS != -1)
         if ($KDP64BITS == 0)
             set $64BITS = 0
@@ -3169,7 +3151,6 @@ define hook-stop
             set $64BITS = 1
         end
     end
-
     # Display instructions formats
     if $ARM == 1
         if $ARMOPCODES == 1
@@ -3182,7 +3163,6 @@ define hook-stop
             set disassembly-flavor att
         end
     end
-
     # this makes 'context' be called at every BP/step
     if ($SHOW_CONTEXT > 0)
         context
@@ -3205,6 +3185,7 @@ end
 # modified to work with Mac OS X by fG!
 # seems nasm shipping with Mac OS X has problems accepting input from stdin or heredoc
 # input is read into a variable and sent to a temporary file which nasm can read
+
 define assemble
     # dont enter routine again if user hits enter
     dont-repeat
@@ -3222,7 +3203,6 @@ define assemble
     printf " Do not forget to use NASM assembler syntax!\n"
     color_reset
     printf "End with a line saying just \"end\".\n"
-    
     if ($argc)
 	    if ($64BITS == 1)
 		    # argument specified, assemble instructions into memory at address specified.
@@ -3279,7 +3259,6 @@ define assemble32
     printf " Do not forget to use NASM assembler syntax!\n"
     color_reset
     printf "End with a line saying just \"end\".\n"
-    
     if ($argc)
         # argument specified, assemble instructions into memory at address specified.
         shell ASMOPCODE="$(while read -ep '>' r && test "$r" != end ; do echo -E "$r"; done)" ; GDBASMFILENAME=$RANDOM; \
@@ -3320,7 +3299,6 @@ define assemble64
     printf " Do not forget to use NASM assembler syntax!\n"
     color_reset
     printf "End with a line saying just \"end\".\n"
-    
     if ($argc)
         # argument specified, assemble instructions into memory at address specified.
         shell ASMOPCODE="$(while read -ep '>' r && test "$r" != end ; do echo -E "$r"; done)" ; GDBASMFILENAME=$RANDOM; \
@@ -3383,7 +3361,6 @@ end
 define assemble_gas
     printf "\nType code to assemble and hit Ctrl-D when finished.\n"
     printf "You must use GNU assembler (AT&T) syntax.\n"
-
     shell filename=$(mktemp); \
           binfilename=$(mktemp); \
           echo -e "Writing into: ${filename}\n"; \
@@ -3476,6 +3453,7 @@ end
 
 # _________________user tips_________________
 # The 'tips' command is used to provide tutorial-like info to the user
+
 define tips
     printf "Tip Topic Commands:\n"
     printf "\ttip_display : Automatically display values on each break\n"
@@ -3581,8 +3559,8 @@ Syntax: tip_display
 end
 
 # bunch of semi-useless commands
-
 # enable and disable shortcuts for stop-on-solib-events fantastic trick!
+
 define enablesolib
 	set stop-on-solib-events 1
 	printf "Stop-on-solib-events is enabled!\n"
@@ -3604,6 +3582,7 @@ end
 
 
 # enable commands for different displays
+
 define enableobjectivec
 	set $SHOWOBJECTIVEC = 1
 end
@@ -3641,6 +3620,7 @@ end
 
 
 # disable commands for different displays
+
 define disableobjectivec
 	set $SHOWOBJECTIVEC = 0
 end
@@ -3814,6 +3794,7 @@ Syntax: loadcmds MACHO_HEADER_START_ADDRESS
 end
 
 # defining it here doesn't get the space #$#$%"#!
+
 define disablecolorprompt
     set prompt gdb$
 end
@@ -3827,6 +3808,7 @@ end
 document enablecolorprompt
 | Enable color prompt
 end
+
 
 #EOF
 
