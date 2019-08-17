@@ -68,7 +68,6 @@
 #
 
 # __________________gdb options_________________
-
 # set to 1 to have ARM target debugging as default, use the "arm" command to switch inside gdb
 set $ARM = 0
 # set to 0 if you have problems with the colorized prompt - reported by Plouj with Ubuntu gdb 7.2
@@ -101,22 +100,17 @@ set $USECOLOR = 1
 # to use with remote KDP
 set $KDP64BITS = -1
 set $64BITS = 0
-
 set confirm off
 set verbose off
 set history filename ~/.gdb_history
 set history save
-
 set output-radix 0x10
 set input-radix 0x10
-
 # These make gdb never pause in its output
 set height 0
 set width 0
-
 set $SHOW_CONTEXT = 1
 set $SHOW_NEST_INSN = 0
-
 set $CONTEXTSIZE_STACK = 6 
 set $CONTEXTSIZE_DATA  = 8
 set $CONTEXTSIZE_CODE  = 8
@@ -127,7 +121,6 @@ set $data_addr = 0x400000
 # __________________color functions_________________
 #
 # color codes
-
 set $BLACK = 0
 set $RED = 1
 set $GREEN = 2
@@ -136,17 +129,15 @@ set $BLUE = 4
 set $MAGENTA = 5
 set $CYAN = 6
 set $WHITE = 7
-
 # CHANGME: If you want to modify the "theme" change the colors here
 #          or just create a ~/.gdbinit.local and set these variables there
-
 set $COLOR_REGNAME = $GREEN
 set $COLOR_REGVAL = $CYAN
 set $COLOR_REGVAL_MODIFIED  = $RED
 set $COLOR_SEPARATOR = $BLUE
 set $COLOR_CPUFLAGS = $RED
-
 # this is ugly but there's no else if available :-(
+
 define color
  if $USECOLOR == 1
  	# BLACK
@@ -213,7 +204,6 @@ end
 # can also be used to redefine anything else in particular the colors aka theming
 # just remap the color variables defined above
 source ~/.gdbinit.local
-
 # can't use the color functions because we are using the set command
 if $COLOREDPROMPT == 1
 	set prompt \033[31mgdb$ \033[0m
@@ -255,11 +245,11 @@ set $oldr6  = 0
 set $oldr7  = 0
 set $oldsp  = 0
 set $oldlr  = 0
-
 # used by ptraceme/rptraceme
 set $ptrace_bpnum = 0
 
 # ______________window size control___________
+
 define contextsize-stack
     if $argc != 1
         help contextsize-stack
@@ -300,6 +290,7 @@ end
 
 
 # _____________breakpoint aliases_____________
+
 define bpl
     info breakpoints
 end
@@ -326,7 +317,6 @@ Syntax: bp LOCATION
 | Or else you can use directly the break command (break [NSControl stringValue])
 end
 
-
 define bpc 
     if $argc != 1
         help bpc
@@ -340,7 +330,6 @@ Syntax: bpc LOCATION
 | LOCATION may be a line number, function name, or "*" and an address.
 end
 
-
 define bpe
     if $argc != 1
         help bpe
@@ -353,7 +342,6 @@ Syntax: bpe NUM
 | Enable breakpoint with number NUM.
 end
 
-
 define bpd
     if $argc != 1
         help bpd
@@ -365,7 +353,6 @@ document bpd
 Syntax: bpd NUM
 | Disable breakpoint with number NUM.
 end
-
 
 define bpt
     if $argc != 1
@@ -381,7 +368,6 @@ Syntax: bpt LOCATION
 | LOCATION may be a line number, function name, or "*" and an address.
 end
 
-
 define bpm
     if $argc != 1
         help bpm
@@ -393,7 +379,6 @@ document bpm
 Syntax: bpm EXPRESSION
 | Set a read/write breakpoint on EXPRESSION, e.g. *address.
 end
-
 
 define bhb
     if $argc != 1
@@ -407,7 +392,6 @@ Syntax: bhb LOCATION
 | Set hardware assisted breakpoint.
 | LOCATION may be a line number, function name, or "*" and an address.
 end
-
 
 define bht
     if $argc != 1
@@ -425,6 +409,7 @@ end
 
 
 # ______________process information____________
+
 define argv
     show args
 end
@@ -432,7 +417,6 @@ document argv
 Syntax: argv
 | Print program arguments.
 end
-
 
 define stack
     if $argc == 0
@@ -450,7 +434,6 @@ Syntax: stack <COUNT>
 | Print backtrace of the call stack, or innermost COUNT frames.
 end
 
-
 define frame
     info frame
     info args
@@ -460,7 +443,6 @@ document frame
 Syntax: frame
 | Print stack frame.
 end
-
 
 define flagsarm
 # conditional flags are
@@ -658,7 +640,6 @@ document flags
 Syntax: flags
 | Print flags register.
 end
-
 
 define eflags
     if $ARM == 1
@@ -1237,7 +1218,6 @@ Syntax: reg
 | Print CPU registers.
 end
 
-
 define smallregisters
     if ($64BITS == 1)
     #64bits stuff
@@ -1297,7 +1277,6 @@ Syntax: smallregisters
 | And 32bits if we are dealing with 64bits binaries.
 end
 
-
 define func
     if $argc == 0
         info functions
@@ -1313,7 +1292,6 @@ document func
 Syntax: func <REGEXP>
 | Print all function names in target, or those matching REGEXP.
 end
-
 
 define var
     if $argc == 0
@@ -1340,7 +1318,6 @@ Syntax: lib
 | Print shared libraries linked to target.
 end
 
-
 define sig
     if $argc == 0
         info signals
@@ -1358,7 +1335,6 @@ Syntax: sig <SIGNAL>
 | Specify a SIGNAL as argument to print info on that signal only.
 end
 
-
 define threads
     info threads
 end
@@ -1366,7 +1342,6 @@ document threads
 Syntax: threads
 | Print threads in target.
 end
-
 
 define dis
     if $argc == 0
@@ -1412,7 +1387,6 @@ Syntax: ascii_char ADDR
 | Print "." if the value is unprintable.
 end
 
-
 define hex_quad
     if $argc != 1
         help hex_quad
@@ -1428,7 +1402,6 @@ document hex_quad
 Syntax: hex_quad ADDR
 | Print eight hexadecimal bytes starting at address ADDR.
 end
-
 
 define hexdump
     if $argc == 1
@@ -1451,7 +1424,6 @@ Syntax: hexdump ADDR <NR_LINES>
 | Display a 16-byte hex/ASCII dump of memory starting at address ADDR.
 | Optional parameter is the number of lines to display if you want more than one. 
 end
-
 
 define hexdump_aux
     if $argc != 1
@@ -1496,7 +1468,6 @@ Syntax: hexdump_aux ADDR
 | Display a 16-byte hex/ASCII dump of memory at address ADDR.
 end
 
-
 # _______________data window__________________
 
 define ddump
@@ -1536,7 +1507,6 @@ Syntax: ddump NUM
 | Display NUM lines of hexdump for address in $data_addr global variable.
 end
 
-
 define dd
     if $argc != 1
         help dd
@@ -1549,7 +1519,6 @@ document dd
 Syntax: dd ADDR
 | Display 16 lines of a hex dump of address starting at ADDR.
 end
-
 
 define datawin
     if $ARM == 1
@@ -1591,8 +1560,6 @@ Syntax: datawin
 | Display valid address from one register in data window.
 | Registers to choose are: esi, edi, eax, or esp.
 end
-
-
 ################################
 ##### ALERT ALERT ALERT ########
 ################################
@@ -2164,7 +2131,6 @@ Syntax: context
 | Print context window, i.e. regs, stack, ds:esi and disassemble cs:eip.
 end
 
-
 define context-on
     set $SHOW_CONTEXT = 1
     printf "Displaying of context is now ON\n"
@@ -2218,7 +2184,6 @@ Syntax: M
 | this is alias for next.
 end
 
-
 define go
     if $argc == 0
         stepi
@@ -2237,7 +2202,6 @@ Syntax: go <NUM>
 | This is alias for stepi.
 end
 
-
 define pret
     finish
 end
@@ -2246,7 +2210,6 @@ Syntax: pret
 | Execute until selected stack frame returns (step out of current call).
 | Upon return, the value returned is printed and put in the value history.
 end
-
 
 define init
     set $SHOW_NEST_INSN = 0
@@ -2258,7 +2221,6 @@ Syntax: init
 | Run program and break on _init().
 end
 
-
 define start
     set $SHOW_NEST_INSN = 0
     tbreak _start
@@ -2268,7 +2230,6 @@ document start
 Syntax: start
 | Run program and break on _start().
 end
-
 
 define sstart
     set $SHOW_NEST_INSN = 0
@@ -2281,7 +2242,6 @@ Syntax: sstart
 | Useful for stripped executables.
 end
 
-
 define main
     set $SHOW_NEST_INSN = 0
     tbreak main
@@ -2291,8 +2251,6 @@ document main
 Syntax: main
 | Run program and break on main().
 end
-
-
 # FIXME64
 #### WARNING ! WARNING !!
 #### More more messy stuff starting !!!
@@ -2306,7 +2264,6 @@ define stepoframework
         # bl # => ARM bits 27-24: 1 0 1 1 ; Thumb bits: 15-11: 1 1 1 1 0 
         # blx # => ARM bits 31-25: 1 1 1 1 1 0 1 ; Thumb bits: 15-11: 1 1 1 1 0 
         set $_nextaddress = 0
-
         # ARM Mode
         if ($_t_flag == 0)
         	set $_branchesint = *(unsigned int*)$pc
@@ -2326,7 +2283,6 @@ define stepoframework
         	set $_bit6 = ($_branchesint >> 0x6) & 1
         	set $_bit5 = ($_branchesint >> 0x5) & 1
         	set $_bit4 = ($_branchesint >> 0x4) & 1
-	
             #	set $_lastbyte = *(unsigned char *)($pc+3)
             #	set $_bits2724 = $_lastbyte & 0x1
             #	set $_bits3128 = $_lastbyte >> 4
@@ -2337,7 +2293,6 @@ define stepoframework
             #	set $_previousbyte = *(unsigned char *)($pc+2)
             #	set $_bits2320 = $_previousbyte >> 4
             #	printf "bits2724: %x bits2320: %x\n", $_bits2724, $_bits2320
-	
         	if ($_bit27 == 0 && $_bit26 == 0 && $_bit25 == 0 && $_bit24 == 1 && $_bit23 == 0 && $_bit22 == 0 && $_bit21 == 1 && $_bit20 == 0 && $_bit7 == 0 && $_bit6 == 0 && $_bit5 == 0 && $_bit4 == 1)
 		        printf "Found a bx Rn\n"
         		set $_nextaddress = $pc+0x4
@@ -2452,7 +2407,6 @@ Syntax: stepo
 | You can safely use it instead nexti or n since it will single step code if it's not a call instruction (unless you want to go into the call function).
 end
 
-
 define stepoh
     stepoframework 1
 end
@@ -2460,8 +2414,6 @@ document stepoh
 Syntax: stepoh
 | Same as stepo command but uses temporary hardware breakpoints.
 end
-
-
 # FIXME: ARM
 
 define skip
@@ -2484,8 +2436,7 @@ Syntax: skip
 | Some configurable options are available on top of gdbinit to override this.
 end
 
-
-# _______________eflags commands______________
+# ____________change eflags commands______________
 # conditional flags are
 # negative/less than (N), bit 31 of CPSR
 # zero (Z), bit 30
@@ -2531,7 +2482,6 @@ Syntax: cfc
 | Change Carry Flag.
 end
 
-
 define cfp
     if (((unsigned int)$eflags >> 2) & 1)
         set $eflags = (unsigned int)$eflags&~0x4
@@ -2544,7 +2494,6 @@ Syntax: cfp
 | Change Parity Flag.
 end
 
-
 define cfa
     if (((unsigned int)$eflags >> 4) & 1)
         set $eflags = (unsigned int)$eflags&~0x10
@@ -2556,7 +2505,6 @@ document cfa
 Syntax: cfa
 | Change Auxiliary Carry Flag.
 end
-
 
 define cfz
 # zero (Z), bit 30
@@ -2580,7 +2528,6 @@ Syntax: cfz
 | Change Zero Flag.
 end
 
-
 define cfs
     if (((unsigned int)$eflags >> 7) & 1)
         set $eflags = (unsigned int)$eflags&~0x80
@@ -2593,7 +2540,6 @@ Syntax: cfs
 | Change Sign Flag.
 end
 
-
 define cft
     if (((unsigned int)$eflags >>8) & 1)
         set $eflags = (unsigned int)$eflags&~0x100
@@ -2605,7 +2551,6 @@ document cft
 Syntax: cft
 | Change Trap Flag.
 end
-
 
 define cfi
     if (((unsigned int)$eflags >> 9) & 1)
@@ -2621,7 +2566,6 @@ Syntax: cfi
 | This only applies to protected mode (real mode code may always modify IF).
 end
 
-
 define cfd
     if (((unsigned int)$eflags >>0xA) & 1)
         set $eflags = (unsigned int)$eflags&~0x400
@@ -2634,7 +2578,6 @@ Syntax: cfd
 | Change Direction Flag.
 end
 
-
 define cfo
     if (((unsigned int)$eflags >> 0xB) & 1)
         set $eflags = (unsigned int)$eflags&~0x800
@@ -2646,7 +2589,6 @@ document cfo
 Syntax: cfo
 | Change Overflow Flag.
 end
-
 
 # Overflow (V), bit 28
 
@@ -2664,7 +2606,6 @@ document cfv
 Syntax: cfv
 | Change Overflow Flag.
 end
-
 
 # ____________________patch___________________
 # the usual nops are mov r0,r0 for arm (0xe1a00000)
@@ -2739,7 +2680,6 @@ document null
 Syntax: null ADDR1 [ADDR2]
 | Patch a single byte at address ADDR1 to NULL (0x00), or a series of bytes between ADDR1 and ADDR2.
 end
-
 # FIXME: thumb breakpoint ?
 
 define int3
@@ -2763,7 +2703,6 @@ document int3
 Syntax int3 ADDR
 | Patch byte at address ADDR to an INT3 (0xCC) instruction or the equivalent software breakpoint for ARM.
 end
-
 
 define rint3
     if $ARM == 1
@@ -2851,7 +2790,6 @@ Syntax: print_insn_type INSN_TYPE_NUMBER
 | Print human-readable mnemonic for the instruction type (usually $INSN_TYPE).
 end
 
-
 define get_insn_type
     if $argc != 1
         help get_insn_type
@@ -2914,7 +2852,6 @@ Syntax: get_insn_type ADDR
 | unknown, a jump, a conditional jump, a call, a return, or an interrupt.
 end
 
-
 define step_to_call
     set $_saved_ctx = $SHOW_CONTEXT
     set $SHOW_CONTEXT = 0
@@ -2950,7 +2887,6 @@ Syntax: step_to_call
 | Stop before the call is taken.
 | Log is written into the file ~/gdb.txt.
 end
-
 
 define trace_calls
     printf "Tracing...please wait...\n"
@@ -3003,7 +2939,6 @@ Syntax: trace_calls
 | Create a runtime trace of the calls made by target.
 | Log overwrites(!) the file ~/gdb_trace_calls.txt.
 end
-
 
 define trace_run
     printf "Tracing...please wait...\n"
@@ -3122,7 +3057,6 @@ Syntax: rptraceme
 | Remove ptrace hook.
 end
 
-
 # ____________________misc____________________
 
 define hook-stop
@@ -3167,7 +3101,33 @@ Syntax: hook-stop
 | !!! FOR INTERNAL USE ONLY - DO NOT CALL !!!
 end
 
+define cls
+    shell clear
+end
+document cls
+Syntax: cls
+| Clear screen.
+end
 
+define search
+    set $start = (char *) $arg0
+    set $end = (char *) $arg1
+    set $pattern = (short) $arg2
+    set $p = $start
+    while $p < $end
+        if (*(short *) $p) == $pattern
+            printf "pattern 0x%hx found at 0x%x\n", $pattern, $p
+        end
+        set $p++
+    end
+end
+document search
+Syntax: search <START> <END> <PATTERN>
+| Search for the given pattern beetween $start and $end address.
+end
+
+
+#___________________assember _________________________
 # original by Tavis Ormandy (http://my.opera.com/taviso/blog/index.dml/tag/gdb) (great fix!)
 # modified to work with Mac OS X by fG!
 # seems nasm shipping with Mac OS X has problems accepting input from stdin or heredoc
@@ -3363,6 +3323,7 @@ Syntax: assemble_gas
 | Assemble instructions to binary opcodes. Uses GNU as and objdump.
 end
 
+#_____________dump file________________
 
 define dump_hexfile
     dump ihex memory $arg0 $arg1 $arg2
@@ -3373,7 +3334,6 @@ Syntax: dump_hexfile FILENAME ADDR1 ADDR2
 | The range is specified by ADDR1 and ADDR2 addresses.
 end
 
-
 define dump_binfile
     dump memory $arg0 $arg1 $arg2
 end
@@ -3382,7 +3342,6 @@ Syntax: dump_binfile FILENAME ADDR1 ADDR2
 | Write a range of memory to a binary file.
 | The range is specified by ADDR1 and ADDR2 addresses.
 end
-
 
 define dumpmacho
     if $argc != 2
@@ -3411,33 +3370,6 @@ Syntax: dumpmacho STARTADDRESS FILENAME
 end
 
 
-define cls
-    shell clear
-end
-document cls
-Syntax: cls
-| Clear screen.
-end
-
-
-define search
-    set $start = (char *) $arg0
-    set $end = (char *) $arg1
-    set $pattern = (short) $arg2
-    set $p = $start
-    while $p < $end
-        if (*(short *) $p) == $pattern
-            printf "pattern 0x%hx found at 0x%x\n", $pattern, $p
-        end
-        set $p++
-    end
-end
-document search
-Syntax: search <START> <END> <PATTERN>
-| Search for the given pattern beetween $start and $end address.
-end
-
-
 # _________________user tips_________________
 # The 'tips' command is used to provide tutorial-like info to the user
 
@@ -3452,7 +3384,6 @@ document tips
 Syntax: tips
 | Provide a list of tips from users on various topics.
 end
-
 
 define tip_patch
     printf "\n"
@@ -3474,7 +3405,6 @@ document tip_patch
 Syntax: tip_patch
 | Tips on patching memory and binary files.
 end
-
 
 define tip_strip
     printf "\n"
@@ -3498,7 +3428,6 @@ document tip_strip
 Syntax: tip_strip
 | Tips on dealing with stripped binaries.
 end
-
 
 define tip_syntax
     printf "\n"
@@ -3525,7 +3454,6 @@ Syntax: tip_syntax
 | Summary of Intel and AT&T syntax differences.
 end
 
-
 define tip_display
     printf "\n"
     printf "Any expression can be set to automatically be displayed every time\n"
@@ -3545,7 +3473,7 @@ Syntax: tip_display
 | Tips on automatically displaying values when a program stops.
 end
 
-# bunch of semi-useless commands
+#____________ bunch of semi-useless commands____________
 # enable and disable shortcuts for stop-on-solib-events fantastic trick!
 
 define enablesolib
@@ -3557,7 +3485,6 @@ Syntax: enablesolib
 | Shortcut to enable stop-on-solib-events trick.
 end
 
-
 define disablesolib
 	set stop-on-solib-events 0
 	printf "Stop-on-solib-events is disabled!\n"
@@ -3567,8 +3494,7 @@ Syntax: disablesolib
 | Shortcut to disable stop-on-solib-events trick.
 end
 
-
-# enable commands for different displays
+#____________enable commands for different displays__________
 
 define enableobjectivec
 	set $SHOWOBJECTIVEC = 1
@@ -3578,7 +3504,6 @@ Syntax: enableobjectivec
 | Enable display of objective-c information in the context window.
 end
 
-
 define enablecpuregisters
 	set $SHOWCPUREGISTERS = 1
 end
@@ -3586,7 +3511,6 @@ document enablecpuregisters
 Syntax: enablecpuregisters
 | Enable display of cpu registers in the context window.
 end
-
 
 define enablestack
 	set $SHOWSTACK = 1
@@ -3596,7 +3520,6 @@ Syntax: enablestack
 | Enable display of stack in the context window.
 end
 
-
 define enabledatawin
 	set $SHOWDATAWIN = 1
 end
@@ -3605,8 +3528,7 @@ Syntax: enabledatawin
 | Enable display of data window in the context window.
 end
 
-
-# disable commands for different displays
+# __________disable commands for different displays_________
 
 define disableobjectivec
 	set $SHOWOBJECTIVEC = 0
@@ -3643,6 +3565,7 @@ Syntax: disabledatawin
 | Disable display of data window in the context window.
 end
 
+#____________other variable control______________
 
 define arm
     if $ARMOPCODES == 1
@@ -3653,15 +3576,6 @@ end
 document arm
 Syntax: arm
 | Set gdb to work with ARM binaries.
-end
-
-define ioskdp
-    set $SHOW_CONTEXT = 0
-    set $SHOW_NEST_INSN = 0
-end
-document ioskdp
-Syntax: ioskdp
-| Disable dumping context information for iOS KDP debugging
 end
 
 define intelsyntax
@@ -3747,9 +3661,34 @@ define 64bits
     set $64BITS = 1
 end
 
+define ioskdp
+    set $SHOW_CONTEXT = 0
+    set $SHOW_NEST_INSN = 0
+end
+document ioskdp
+Syntax: ioskdp
+| Disable dumping context information for iOS KDP debugging
+end
+
 define resetkdp
     set $KDP64BITS = -1
 end
+
+define disablecolorprompt
+    set prompt gdb$
+end
+document disablecolorprompt
+| Remove color from prompt
+end
+
+define enablecolorprompt
+    set prompt \033[31mgdb$ \033[0m
+end
+document enablecolorprompt
+| Enable color prompt
+end
+
+#___________dump memory_______________
 
 define header
     if $argc != 1
@@ -3779,24 +3718,6 @@ document loadcmds
 Syntax: loadcmds MACHO_HEADER_START_ADDRESS
 | Dump the Mach-O load commands
 end
-
-# defining it here doesn't get the space #$#$%"#!
-
-define disablecolorprompt
-    set prompt gdb$
-end
-document disablecolorprompt
-| Remove color from prompt
-end
-
-define enablecolorprompt
-    set prompt \033[31mgdb$ \033[0m
-end
-document enablecolorprompt
-| Enable color prompt
-end
-
-
 #EOF
 
 # Older change logs:
