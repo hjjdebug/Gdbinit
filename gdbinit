@@ -289,6 +289,180 @@ Syntax: contextsize-code NUM
 end
 
 
+# _______________process context______________
+# initialize variable
+set $displayobjectivec = 0
+
+define context 
+    color $COLOR_SEPARATOR
+    if $SHOWCPUREGISTERS == 1
+	    printf "----------------------------------------"
+	    printf "----------------------------------"
+	    if ($64BITS == 1)
+	        printf "---------------------------------------------"
+	    end
+	    color $COLOR_SEPARATOR
+	    color_bold
+	    printf "[regs]\n"
+	    color_reset
+	    reg
+	    color $CYAN
+    end
+    if $SHOWSTACK == 1
+    	color $COLOR_SEPARATOR
+		if $ARM == 1
+       		printf "[0x%08X]", $sp
+		else
+        if ($64BITS == 1)
+		    printf "[0x%04X:0x%016lX]", $ss, $rsp
+        else
+            printf "[0x%04X:0x%08X]", $ss, $esp
+        end
+    end
+        color $COLOR_SEPARATOR
+		printf "-------------------------"
+    	printf "-----------------------------"
+	    if ($64BITS == 1)
+	        printf "-------------------------------------"
+	    end
+	    color $COLOR_SEPARATOR
+	    color_bold
+	    printf "[stack]\n"
+    	color_reset
+    	set $context_i = $CONTEXTSIZE_STACK
+    	while ($context_i > 0)
+       	    set $context_t = $sp + 0x10 * ($context_i - 1)
+       	    hexdump $context_t
+       	    set $context_i--
+    	end
+    end
+    # show the objective C message being passed to msgSend
+    if $SHOWOBJECTIVEC == 1
+        #FIXME: X64 and ARM
+        # What a piece of crap that's going on here :)
+        # detect if it's the correct opcode we are searching for
+        if $ARM == 0
+            set $__byte1 = *(unsigned char *)$pc
+    	    set $__byte = *(int *)$pc
+        	if ($__byte == 0x4244489)
+          		set $objectivec = $eax
+      	    	set $displayobjectivec = 1
+    	    end
+        	if ($__byte == 0x4245489)
+         		set $objectivec = $edx
+     	    	set $displayobjectivec = 1
+    	    end
+        	if ($__byte == 0x4244c89)
+         		set $objectivec = $ecx
+     	    	set $displayobjectivec = 1
+        	end
+        else
+            set $__byte1 = 0
+        end
+        # and now display it or not (we have no interest in having the info displayed after the call)
+        if $__byte1 == 0xE8
+            if $displayobjectivec == 1
+                color $COLOR_SEPARATOR
+                printf "--------------------------------------------------------------------"
+                if ($64BITS == 1)
+                    printf "---------------------------------------------"
+                end
+                color $COLOR_SEPARATOR
+                color_bold
+	    		printf "[ObjectiveC]\n"
+	    		color_reset
+      	    	color $BLACK
+      		    x/s $objectivec
+         	end   
+         	set $displayobjectivec = 0     
+        end
+        if $displayobjectivec == 1
+            color $COLOR_SEPARATOR
+          	printf "--------------------------------------------------------------------"
+          	if ($64BITS == 1)
+	            printf "---------------------------------------------"
+    	    end
+    	    color $COLOR_SEPARATOR
+    	    color_bold
+		    printf "[ObjectiveC]\n"
+		    color_reset
+          	color $BLACK
+          	x/s $objectivec 
+        end   
+    end
+    color_reset
+# and this is the end of this little crap
+    if $SHOWDATAWIN == 1
+        datawin
+    end
+    color $COLOR_SEPARATOR
+    printf "--------------------------------------------------------------------------"
+    if ($64BITS == 1)
+	    printf "---------------------------------------------"
+	end
+	color $COLOR_SEPARATOR
+	color_bold
+    printf "[code]\n"
+    color_reset
+    set $context_i = $CONTEXTSIZE_CODE
+    if ($context_i > 0)
+        if ($SETCOLOR1STLINE == 1)	
+	        color $GREEN
+            if ($ARM == 1)
+                #       | $cpsr.t (Thumb flag)
+                x/i (unsigned int)$pc | (($cpsr >> 5) & 1)
+            else
+    	        x/i $pc
+            end
+	        color_reset
+	    else
+            if ($ARM == 1)
+                #       | $cpsr.t (Thumb flag)
+	              x/i (unsigned int)$pc | (($cpsr >> 5) & 1)
+            else
+                x/i $pc
+            end
+	    end
+        set $context_i--
+    end
+    while ($context_i > 0)
+        x /i
+        set $context_i--
+    end
+    color $COLOR_SEPARATOR
+    printf "----------------------------------------"
+    printf "----------------------------------------"
+    if ($64BITS == 1)
+        printf "---------------------------------------------\n"
+	else
+	    printf "\n"
+	end
+    color_reset
+end
+document context
+Syntax: context
+| Print context window, i.e. regs, stack, ds:esi and disassemble cs:eip.
+end
+
+define context-on
+    set $SHOW_CONTEXT = 1
+    printf "Displaying of context is now ON\n"
+end
+document context-on
+Syntax: context-on
+| Enable display of context on every program break.
+end
+
+define context-off
+    set $SHOW_CONTEXT = 0
+    printf "Displaying of context is now OFF\n"
+end
+document context-off
+Syntax: context-off
+| Disable display of context on every program break.
+end
+
+
 # _____________breakpoint aliases_____________
 
 define bpl
@@ -408,6 +582,51 @@ Usage: bht LOCATION
 end
 
 
+define init
+    set $SHOW_NEST_INSN = 0
+    tbreak _init
+    r
+end
+document init
+Syntax: init
+| Run program and break on _init().
+end
+
+define start
+    set $SHOW_NEST_INSN = 0
+    tbreak _start
+    r
+end
+document start
+Syntax: start
+| Run program and break on _start().
+end
+
+define sstart
+    set $SHOW_NEST_INSN = 0
+    tbreak __libc_start_main
+    r
+end
+document sstart
+Syntax: sstart
+| Run program and break on __libc_start_main().
+| Useful for stripped executables.
+end
+
+define main
+    set $SHOW_NEST_INSN = 0
+    tbreak main
+    r
+end
+document main
+Syntax: main
+| Run program and break on main().
+end
+# FIXME64
+#### WARNING ! WARNING !!
+#### More more messy stuff starting !!!
+#### I was thinking about how to do this and then it ocurred me that it could be as simple as this ! :)
+
 # ______________process information____________
 
 define argv
@@ -443,6 +662,73 @@ document frame
 Syntax: frame
 | Print stack frame.
 end
+
+define func
+    if $argc == 0
+        info functions
+    end
+    if $argc == 1
+        info functions $arg0
+    end
+    if $argc > 1
+        help func
+    end
+end
+document func
+Syntax: func <REGEXP>
+| Print all function names in target, or those matching REGEXP.
+end
+
+define var
+    if $argc == 0
+        info variables
+    end
+    if $argc == 1
+        info variables $arg0
+    end
+    if $argc > 1
+        help var
+    end
+end
+document var
+Syntax: var <REGEXP>
+| Print all global and static variable names (symbols), or those matching REGEXP.
+end
+
+define lib
+    info sharedlibrary
+end
+document lib
+Syntax: lib
+| Print shared libraries linked to target.
+end
+
+define sig
+    if $argc == 0
+        info signals
+    end
+    if $argc == 1
+        info signals $arg0
+    end
+    if $argc > 1
+        help sig
+    end
+end
+document sig
+Syntax: sig <SIGNAL>
+| Print what debugger does when program gets various signals.
+| Specify a SIGNAL as argument to print info on that signal only.
+end
+
+define threads
+    info threads
+end
+document threads
+Syntax: threads
+| Print threads in target.
+end
+
+#_________________registers ____________________
 
 define flagsarm
 # conditional flags are
@@ -1277,295 +1563,6 @@ Syntax: smallregisters
 | And 32bits if we are dealing with 64bits binaries.
 end
 
-define func
-    if $argc == 0
-        info functions
-    end
-    if $argc == 1
-        info functions $arg0
-    end
-    if $argc > 1
-        help func
-    end
-end
-document func
-Syntax: func <REGEXP>
-| Print all function names in target, or those matching REGEXP.
-end
-
-define var
-    if $argc == 0
-        info variables
-    end
-    if $argc == 1
-        info variables $arg0
-    end
-    if $argc > 1
-        help var
-    end
-end
-document var
-Syntax: var <REGEXP>
-| Print all global and static variable names (symbols), or those matching REGEXP.
-end
-
-
-define lib
-    info sharedlibrary
-end
-document lib
-Syntax: lib
-| Print shared libraries linked to target.
-end
-
-define sig
-    if $argc == 0
-        info signals
-    end
-    if $argc == 1
-        info signals $arg0
-    end
-    if $argc > 1
-        help sig
-    end
-end
-document sig
-Syntax: sig <SIGNAL>
-| Print what debugger does when program gets various signals.
-| Specify a SIGNAL as argument to print info on that signal only.
-end
-
-define threads
-    info threads
-end
-document threads
-Syntax: threads
-| Print threads in target.
-end
-
-define dis
-    if $argc == 0
-        disassemble
-    end
-    if $argc == 1
-        disassemble $arg0
-    end
-    if $argc == 2
-        disassemble $arg0 $arg1
-    end 
-    if $argc > 2
-        help dis
-    end
-end
-document dis
-Syntax: dis <ADDR1> <ADDR2>
-| Disassemble a specified section of memory.
-| Default is to disassemble the function surrounding the PC (program counter) of selected frame. 
-| With one argument, ADDR1, the function surrounding this address is dumped.
-| Two arguments are taken as a range of memory to dump.
-end
-
-
-# __________hex/ascii dump an address_________
-
-define ascii_char
-    if $argc != 1
-        help ascii_char
-    else
-        # thanks elaine :)
-        set $_c = *(unsigned char *)($arg0)
-        if ($_c < 0x20 || $_c > 0x7E)
-            printf "."
-        else
-            printf "%c", $_c
-        end
-    end
-end
-document ascii_char
-Syntax: ascii_char ADDR
-| Print ASCII value of byte at address ADDR.
-| Print "." if the value is unprintable.
-end
-
-define hex_quad
-    if $argc != 1
-        help hex_quad
-    else
-        printf "%02X %02X %02X %02X %02X %02X %02X %02X", \
-               *(unsigned char*)($arg0), *(unsigned char*)($arg0 + 1),     \
-               *(unsigned char*)($arg0 + 2), *(unsigned char*)($arg0 + 3), \
-               *(unsigned char*)($arg0 + 4), *(unsigned char*)($arg0 + 5), \
-               *(unsigned char*)($arg0 + 6), *(unsigned char*)($arg0 + 7)
-    end
-end
-document hex_quad
-Syntax: hex_quad ADDR
-| Print eight hexadecimal bytes starting at address ADDR.
-end
-
-define hexdump
-    if $argc == 1
-        hexdump_aux $arg0
-	else
-		if $argc == 2
-			set $_count = 0
-			while ($_count < $arg1)
-				set $_i = ($_count * 0x10)
-				hexdump_aux $arg0+$_i
-				set $_count++
-			end
-		else
-			help hexdump
-		end
-    end
-end
-document hexdump
-Syntax: hexdump ADDR <NR_LINES>
-| Display a 16-byte hex/ASCII dump of memory starting at address ADDR.
-| Optional parameter is the number of lines to display if you want more than one. 
-end
-
-define hexdump_aux
-    if $argc != 1
-        help hexdump_aux
-    else
-    	color_bold
-        if ($64BITS == 1)
-            printf "0x%016lX : ", $arg0
-        else
-            printf "0x%08X : ", $arg0
-        end
-        color_reset
-        hex_quad $arg0
-        color_bold
-        printf " - "
-        color_reset
-        hex_quad $arg0+8
-        printf " "
-        color_bold
-        ascii_char $arg0+0x0
-        ascii_char $arg0+0x1
-        ascii_char $arg0+0x2
-        ascii_char $arg0+0x3
-        ascii_char $arg0+0x4
-        ascii_char $arg0+0x5
-        ascii_char $arg0+0x6
-        ascii_char $arg0+0x7
-        ascii_char $arg0+0x8
-        ascii_char $arg0+0x9
-        ascii_char $arg0+0xA
-        ascii_char $arg0+0xB
-        ascii_char $arg0+0xC
-        ascii_char $arg0+0xD
-        ascii_char $arg0+0xE
-        ascii_char $arg0+0xF
-        color_reset
-        printf "\n"
-    end
-end
-document hexdump_aux
-Syntax: hexdump_aux ADDR
-| Display a 16-byte hex/ASCII dump of memory at address ADDR.
-end
-
-# _______________data window__________________
-
-define ddump
-    if $argc != 1
-        help ddump
-    else
-        color $COLOR_SEPARATOR
-        if $ARM == 1
-            printf "[0x%08X]", $data_addr
-        else
-            if ($64BITS == 1)
-                printf "[0x%04X:0x%016lX]", $ds, $data_addr
-            else
-                printf "[0x%04X:0x%08X]", $ds, $data_addr
-            end
-        end
-    	color $COLOR_SEPARATOR
-    	printf "------------------------"
-        printf "-------------------------------"
-        if ($64BITS == 1)
-            printf "-------------------------------------"
-	    end
-	    color_bold
-	    color $COLOR_SEPARATOR
-	    printf "[data]\n"
-        color_reset
-        set $_count = 0
-        while ($_count < $arg0)
-            set $_i = ($_count * 0x10)
-            hexdump $data_addr+$_i
-            set $_count++
-        end
-    end
-end
-document ddump
-Syntax: ddump NUM
-| Display NUM lines of hexdump for address in $data_addr global variable.
-end
-
-define dd
-    if $argc != 1
-        help dd
-    else
-        set $data_addr = $arg0
-        ddump 3 
-    end
-end
-document dd
-Syntax: dd ADDR
-| Display 16 lines of a hex dump of address starting at ADDR.
-end
-
-define datawin
-    if $ARM == 1
-        if ((($r0 >> 0x18) == 0x40) || (($r0 >> 0x18) == 0x08) || (($r0 >> 0x18) == 0xBF))
-            set $data_addr = $r0
-        else
-            if ((($r1 >> 0x18) == 0x40) || (($r1 >> 0x18) == 0x08) || (($r1 >> 0x18) == 0xBF))
-                set $data_addr = $r1
-            else
-                if ((($r2 >> 0x18) == 0x40) || (($r2 >> 0x18) == 0x08) || (($r2 >> 0x18) == 0xBF))
-                    set $data_addr = $r2
-                else
-                    set $data_addr = $sp
-                end
-            end
-        end
-################################# X86
-    else
-        if ($64BITS == 1)
-            if ((($rsi >> 0x18) == 0x40) || (($rsi >> 0x18) == 0x08) || (($rsi >> 0x18) == 0xBF))
-                set $data_addr = $rsi
-            else
-                if ((($rdi >> 0x18) == 0x40) || (($rdi >> 0x18) == 0x08) || (($rdi >> 0x18) == 0xBF))
-                    set $data_addr = $rdi
-                else
-                    if ((($rax >> 0x18) == 0x40) || (($rax >> 0x18) == 0x08) || (($rax >> 0x18) == 0xBF))
-                        set $data_addr = $rax
-                    else
-                        set $data_addr = $rsp
-                    end
-                end
-            end
-        end
-    end
-    ddump $CONTEXTSIZE_DATA
-end
-document datawin
-Syntax: datawin
-| Display valid address from one register in data window.
-| Registers to choose are: esi, edi, eax, or esp.
-end
-################################
-##### ALERT ALERT ALERT ########
-################################
-# Huge mess going here :) HAHA #
-################################
-
 define dumpjump
     if $ARM == 1
         ## Most ARM and Thumb instructions are conditional!
@@ -1976,181 +1973,6 @@ Syntax: dumpjumphelper
 end
 
 
-# _______________process context______________
-# initialize variable
-set $displayobjectivec = 0
-
-define context 
-    color $COLOR_SEPARATOR
-    if $SHOWCPUREGISTERS == 1
-	    printf "----------------------------------------"
-	    printf "----------------------------------"
-	    if ($64BITS == 1)
-	        printf "---------------------------------------------"
-	    end
-	    color $COLOR_SEPARATOR
-	    color_bold
-	    printf "[regs]\n"
-	    color_reset
-	    reg
-	    color $CYAN
-    end
-    if $SHOWSTACK == 1
-    	color $COLOR_SEPARATOR
-		if $ARM == 1
-       printf "[0x%08X]", $sp
-		else
-        if ($64BITS == 1)
-		        printf "[0x%04X:0x%016lX]", $ss, $rsp
-        else
-            printf "[0x%04X:0x%08X]", $ss, $esp
-        end
-    end
-        color $COLOR_SEPARATOR
-		printf "-------------------------"
-    	printf "-----------------------------"
-	    if ($64BITS == 1)
-	        printf "-------------------------------------"
-	    end
-	    color $COLOR_SEPARATOR
-	    color_bold
-	    printf "[stack]\n"
-    	color_reset
-    	set $context_i = $CONTEXTSIZE_STACK
-    	while ($context_i > 0)
-       	    set $context_t = $sp + 0x10 * ($context_i - 1)
-       	    hexdump $context_t
-       	    set $context_i--
-    	end
-    end
-    # show the objective C message being passed to msgSend
-    if $SHOWOBJECTIVEC == 1
-        #FIXME: X64 and ARM
-        # What a piece of crap that's going on here :)
-        # detect if it's the correct opcode we are searching for
-        if $ARM == 0
-            set $__byte1 = *(unsigned char *)$pc
-    	    set $__byte = *(int *)$pc
-        	if ($__byte == 0x4244489)
-          		set $objectivec = $eax
-      	    	set $displayobjectivec = 1
-    	    end
-        	if ($__byte == 0x4245489)
-         		set $objectivec = $edx
-     	    	set $displayobjectivec = 1
-    	    end
-        	if ($__byte == 0x4244c89)
-         		set $objectivec = $ecx
-     	    	set $displayobjectivec = 1
-        	end
-        else
-            set $__byte1 = 0
-        end
-        # and now display it or not (we have no interest in having the info displayed after the call)
-        if $__byte1 == 0xE8
-            if $displayobjectivec == 1
-                color $COLOR_SEPARATOR
-                printf "--------------------------------------------------------------------"
-                if ($64BITS == 1)
-                    printf "---------------------------------------------"
-                end
-                color $COLOR_SEPARATOR
-                color_bold
-	    		printf "[ObjectiveC]\n"
-	    		color_reset
-      	    	color $BLACK
-      		    x/s $objectivec
-         	end   
-         	set $displayobjectivec = 0     
-        end
-        if $displayobjectivec == 1
-            color $COLOR_SEPARATOR
-          	printf "--------------------------------------------------------------------"
-          	if ($64BITS == 1)
-	            printf "---------------------------------------------"
-    	    end
-    	    color $COLOR_SEPARATOR
-    	    color_bold
-		    printf "[ObjectiveC]\n"
-		    color_reset
-          	color $BLACK
-          	x/s $objectivec 
-        end   
-    end
-    color_reset
-# and this is the end of this little crap
-    if $SHOWDATAWIN == 1
-        datawin
-    end
-    color $COLOR_SEPARATOR
-    printf "--------------------------------------------------------------------------"
-    if ($64BITS == 1)
-	    printf "---------------------------------------------"
-	end
-	color $COLOR_SEPARATOR
-	color_bold
-    printf "[code]\n"
-    color_reset
-    set $context_i = $CONTEXTSIZE_CODE
-    if ($context_i > 0)
-        if ($SETCOLOR1STLINE == 1)	
-	        color $GREEN
-            if ($ARM == 1)
-                #       | $cpsr.t (Thumb flag)
-                x/i (unsigned int)$pc | (($cpsr >> 5) & 1)
-            else
-    	        x/i $pc
-            end
-	        color_reset
-	    else
-            if ($ARM == 1)
-                #       | $cpsr.t (Thumb flag)
-	              x/i (unsigned int)$pc | (($cpsr >> 5) & 1)
-            else
-                x/i $pc
-            end
-	    end
-        set $context_i--
-    end
-    while ($context_i > 0)
-        x /i
-        set $context_i--
-    end
-    color $COLOR_SEPARATOR
-    printf "----------------------------------------"
-    printf "----------------------------------------"
-    if ($64BITS == 1)
-        printf "---------------------------------------------\n"
-	else
-	    printf "\n"
-	end
-    color_reset
-end
-document context
-Syntax: context
-| Print context window, i.e. regs, stack, ds:esi and disassemble cs:eip.
-end
-
-define context-on
-    set $SHOW_CONTEXT = 1
-    printf "Displaying of context is now ON\n"
-end
-document context-on
-Syntax: context-on
-| Enable display of context on every program break.
-end
-
-
-define context-off
-    set $SHOW_CONTEXT = 0
-    printf "Displaying of context is now OFF\n"
-end
-document context-off
-Syntax: context-off
-| Disable display of context on every program break.
-end
-
-
 # _______________process control______________
 
 define n
@@ -2210,51 +2032,6 @@ Syntax: pret
 | Execute until selected stack frame returns (step out of current call).
 | Upon return, the value returned is printed and put in the value history.
 end
-
-define init
-    set $SHOW_NEST_INSN = 0
-    tbreak _init
-    r
-end
-document init
-Syntax: init
-| Run program and break on _init().
-end
-
-define start
-    set $SHOW_NEST_INSN = 0
-    tbreak _start
-    r
-end
-document start
-Syntax: start
-| Run program and break on _start().
-end
-
-define sstart
-    set $SHOW_NEST_INSN = 0
-    tbreak __libc_start_main
-    r
-end
-document sstart
-Syntax: sstart
-| Run program and break on __libc_start_main().
-| Useful for stripped executables.
-end
-
-define main
-    set $SHOW_NEST_INSN = 0
-    tbreak main
-    r
-end
-document main
-Syntax: main
-| Run program and break on main().
-end
-# FIXME64
-#### WARNING ! WARNING !!
-#### More more messy stuff starting !!!
-#### I was thinking about how to do this and then it ocurred me that it could be as simple as this ! :)
 
 define stepoframework
     if $ARM == 1
@@ -2434,326 +2211,6 @@ document skip
 Syntax: skip
 | Skip over the instruction located at EIP/RIP. By default, the instruction will not be executed!
 | Some configurable options are available on top of gdbinit to override this.
-end
-
-# ____________change eflags commands______________
-# conditional flags are
-# negative/less than (N), bit 31 of CPSR
-# zero (Z), bit 30
-# Carry/Borrow/Extend (C), bit 29
-# Overflow (V), bit 28
-
-# negative/less than (N), bit 31 of CPSR
-define cfn
-    if $ARM == 1
-    	set $tempflag = $cpsr->n
-        if ($tempflag & 1)
-            set $cpsr->n = $tempflag&~0x1
-        else
-            set $cpsr->n = $tempflag|0x1
-        end
-    end
-end
-document cfn
-Syntax: cfn
-| Change Negative/Less Than Flag.
-end
-
-
-define cfc
-# Carry/Borrow/Extend (C), bit 29
-    if $ARM == 1
-	    set $tempflag = $cpsr->c
-        if ($tempflag & 1)
-            set $cpsr->c = $tempflag&~0x1
-        else
-            set $cpsr->c = $tempflag|0x1
-        end
-     else
-        if ((unsigned int)$eflags & 1)
-            set $eflags = (unsigned int)$eflags&~0x1
-        else
-            set $eflags = (unsigned int)$eflags|0x1
-        end
-     end
-end
-document cfc
-Syntax: cfc
-| Change Carry Flag.
-end
-
-define cfp
-    if (((unsigned int)$eflags >> 2) & 1)
-        set $eflags = (unsigned int)$eflags&~0x4
-    else
-        set $eflags = (unsigned int)$eflags|0x4
-    end
-end
-document cfp
-Syntax: cfp
-| Change Parity Flag.
-end
-
-define cfa
-    if (((unsigned int)$eflags >> 4) & 1)
-        set $eflags = (unsigned int)$eflags&~0x10
-    else
-        set $eflags = (unsigned int)$eflags|0x10
-    end
-end
-document cfa
-Syntax: cfa
-| Change Auxiliary Carry Flag.
-end
-
-define cfz
-# zero (Z), bit 30
-    if $ARM == 1
- 	    set $tempflag = $cpsr->z
-        if ($tempflag & 1)
-            set $cpsr->z = $tempflag&~0x1
-        else
-            set $cpsr->z = $tempflag|0x1
-        end
-     else
-        if (((unsigned int)$eflags >> 6) & 1)
-            set $eflags = (unsigned int)$eflags&~0x40
-        else
-            set $eflags = (unsigned int)$eflags|0x40
-        end
-     end
-end
-document cfz
-Syntax: cfz
-| Change Zero Flag.
-end
-
-define cfs
-    if (((unsigned int)$eflags >> 7) & 1)
-        set $eflags = (unsigned int)$eflags&~0x80
-    else
-        set $eflags = (unsigned int)$eflags|0x80
-    end
-end
-document cfs
-Syntax: cfs
-| Change Sign Flag.
-end
-
-define cft
-    if (((unsigned int)$eflags >>8) & 1)
-        set $eflags = (unsigned int)$eflags&~0x100
-    else
-        set $eflags = (unsigned int)$eflags|0x100
-    end
-end
-document cft
-Syntax: cft
-| Change Trap Flag.
-end
-
-define cfi
-    if (((unsigned int)$eflags >> 9) & 1)
-        set $eflags = (unsigned int)$eflags&~0x200
-    else
-        set $eflags = (unsigned int)$eflags|0x200
-    end
-end
-document cfi
-Syntax: cfi
-| Change Interrupt Flag.
-| Only privileged applications (usually the OS kernel) may modify IF.
-| This only applies to protected mode (real mode code may always modify IF).
-end
-
-define cfd
-    if (((unsigned int)$eflags >>0xA) & 1)
-        set $eflags = (unsigned int)$eflags&~0x400
-    else
-        set $eflags = (unsigned int)$eflags|0x400
-    end
-end
-document cfd
-Syntax: cfd
-| Change Direction Flag.
-end
-
-define cfo
-    if (((unsigned int)$eflags >> 0xB) & 1)
-        set $eflags = (unsigned int)$eflags&~0x800
-    else
-        set $eflags = (unsigned int)$eflags|0x800
-    end
-end
-document cfo
-Syntax: cfo
-| Change Overflow Flag.
-end
-
-# Overflow (V), bit 28
-
-define cfv
-    if $ARM == 1
-    	set $tempflag = $cpsr->v
-        if ($tempflag & 1)
-            set $cpsr->v = $tempflag&~0x1
-        else
-            set $cpsr->v = $tempflag|0x1
-        end
-    end
-end
-document cfv
-Syntax: cfv
-| Change Overflow Flag.
-end
-
-# ____________________patch___________________
-# the usual nops are mov r0,r0 for arm (0xe1a00000)
-# and mov r8,r8 in Thumb (0x46c0)
-# armv7 has other nops
-# FIXME: make sure that the interval fits the 32bits address for arm and 16bits for thumb
-# status: works, fixme
-
-define nop
-    if ($argc > 2 || $argc == 0)
-        help nop
-    end
-    if $ARM == 1
-        if ($argc == 1)
-            if ($cpsr->t &1)
-                # thumb
-                set *(short *)$arg0 = 0x46c0
-            else
-                # arm
-                set *(int *)$arg0 = 0xe1a00000
-            end
-        else
-        	set $addr = $arg0
-        	if ($cpsr->t & 1)
-    	    	# thumb
-			    while ($addr < $arg1)
-				    set *(short *)$addr = 0x46c0
-				    set $addr = $addr + 2
-		    	end
-	    	else
-		    	# arm
-		    	while ($addr < $arg1)
-			    	set *(int *)$addr = 0xe1a00000
-			    	set $addr = $addr + 4
-			    end
-		    end			
-        end 
-    else
-        if ($argc == 1)
-    	    set *(unsigned char *)$arg0 = 0x90
-        else
-        	set $addr = $arg0
-    	    while ($addr < $arg1)
-	    	    set *(unsigned char *)$addr = 0x90
-	    	    set $addr = $addr + 1
-    	    end
-        end
-    end
-end
-document nop
-Syntax: nop ADDR1 [ADDR2]
-| Patch a single byte at address ADDR1, or a series of bytes between ADDR1 and ADDR2 to a NOP (0x90) instruction.
-| ARM or Thumb code will be patched accordingly.
-end
-
-
-define null
-    if ( $argc >2 || $argc == 0)
-        help null
-    end
-    if ($argc == 1)
-	    set *(unsigned char *)$arg0 = 0
-    else
-	    set $addr = $arg0
-    	while ($addr < $arg1)
-	        set *(unsigned char *)$addr = 0
-		    set $addr = $addr +1
-	    end
-    end
-end
-document null
-Syntax: null ADDR1 [ADDR2]
-| Patch a single byte at address ADDR1 to NULL (0x00), or a series of bytes between ADDR1 and ADDR2.
-end
-# FIXME: thumb breakpoint ?
-
-define int3
-    if $argc != 1
-        help int3
-    else
-        if $ARM == 1
-            set $ORIGINAL_INT3 = *(unsigned int *)$arg0
-            set $ORIGINAL_INT3ADDRESS = $arg0
-            set *(unsigned int*)$arg0 = 0xe7ffdefe
-        else
-            # save original bytes and address
-            set $ORIGINAL_INT3 = *(unsigned char *)$arg0
-            set $ORIGINAL_INT3ADDRESS = $arg0
-            # patch
-            set *(unsigned char *)$arg0 = 0xCC
-        end
-    end
-end
-document int3
-Syntax int3 ADDR
-| Patch byte at address ADDR to an INT3 (0xCC) instruction or the equivalent software breakpoint for ARM.
-end
-
-define rint3
-    if $ARM == 1
-      	set *(unsigned int *)$ORIGINAL_INT3ADDRESS = $ORIGINAL_INT3
-	    set $pc = $ORIGINAL_INT3ADDRESS
-    else
-    	set *(unsigned char *)$ORIGINAL_INT3ADDRESS = $ORIGINAL_INT3
-    	if ($64BITS == 1)
-        	set $rip = $ORIGINAL_INT3ADDRESS
-    	else
-    	    set $eip = $ORIGINAL_INT3ADDRESS
-    	end
-	end
-end
-document rint3
-Syntax: rint3
-| Restore the original byte previous to int3 patch issued with "int3" command.
-end
-
-define patch
-    if $argc != 3
-        help patch
-    end
-    set $patchaddr = $arg0
-    set $patchbytes = $arg1
-    set $patchsize = $arg2
-    if ($patchsize == 1)
-        set *(unsigned char*)$patchaddr = $patchbytes
-    end
-    if ($patchsize == 2)
-        set $lendianbytes = (unsigned short)(($patchbytes << 8) | ($patchbytes >> 8))
-        set *(unsigned short*)$patchaddr = $lendianbytes
-    end
-    if ($patchsize == 4)
-        set $lendianbytes = (unsigned int)( (($patchbytes << 8) & 0xFF00FF00 ) | (($patchbytes >> 8) & 0xFF00FF ))
-        set $lendianbytes = (unsigned int)($lendianbytes << 0x10 | $lendianbytes >> 0x10)
-        set *(unsigned int*)$patchaddr = $lendianbytes
-    end
-    if ($patchsize == 8)
-        set $lendianbytes = (unsigned long long)( (($patchbytes << 8) & 0xFF00FF00FF00FF00ULL ) | (($patchbytes >> 8) & 0x00FF00FF00FF00FFULL ) )
-        set $lendianbytes = (unsigned long long)( (($lendianbytes << 0x10) & 0xFFFF0000FFFF0000ULL ) | (($lendianbytes >> 0x10) & 0x0000FFFF0000FFFFULL ) )
-        set $lendianbytes = (unsigned long long)( ($lendianbytes << 0x20) | ($lendianbytes >> 0x20) )
-        set *(unsigned long long*)$patchaddr = $lendianbytes
-    end
-end
-document patch
-Syntax: patch address bytes size
-| Patch a given address, converting the bytes to little-endian.
-| Assumes input bytes are unsigned values and should be in hexadecimal format (0x...).
-| Size must be 1, 2, 4, 8 bytes.
-| Main purpose is to be used with the output from the asm commands.
 end
 
 # ____________________cflow___________________
@@ -2986,9 +2443,9 @@ define entry_point
 	set logging on
 	info files
 	set logging off
-	shell entry_point="$(/usr/bin/grep 'Entry point:' /tmp/gdb-entry_point | /usr/bin/awk '{ print $3 }')"; echo "$entry_point"; echo 'set $entry_point_address = '"$entry_point" > /tmp/gdb-entry_point
+	shell entry_point="$(/bin/grep 'Entry point:' /tmp/gdb-entry_point | /usr/bin/awk '{ print $3 }')"; echo "$entry_point"; echo 'set $entry_point_address = '"$entry_point" > /tmp/gdb-entry_point
 	source /tmp/gdb-entry_point
-    shell /bin/rm -f /tmp/gdb-entry_point
+#    shell /bin/rm -f /tmp/gdb-entry_point
 end
 document entry_point
 Syntax: entry_point
@@ -3004,57 +2461,323 @@ Syntax: break_entrypoint
 | Sets a breakpoint on the entry point of the target.
 end
 
-define objc_symbols
-	set logging redirect on
-	set logging file /tmp/gdb-objc_symbols
-	set logging on
-	info target
-	set logging off
-    # XXX: define paths for objc-symbols and SymTabCreator
-	shell target="$(/usr/bin/head -1 /tmp/gdb-objc_symbols | /usr/bin/head -1 | /usr/bin/awk -F '"' '{ print $2 }')"; objc-symbols "$target" | SymTabCreator -o /tmp/gdb-symtab
-	set logging on
-	add-symbol-file /tmp/gdb-symtab
-	set logging off
-    shell /bin/rm -f /tmp/gdb-objc_symbols
-end
-document objc_symbols
-Syntax: objc_symbols
-| Loads stripped objc symbols into gdb using objc-symbols and SymTabCreator
-| See http://stackoverflow.com/questions/17554070/import-class-dump-info-into-gdb
-| and https://github.com/0xced/class-dump/tree/objc-symbols (for the required utils)
-end
+# ____________change eflags commands______________
+# conditional flags are
+# negative/less than (N), bit 31 of CPSR
+# zero (Z), bit 30
+# Carry/Borrow/Extend (C), bit 29
+# Overflow (V), bit 28
 
-#define ptraceme
-#    catch syscall ptrace
-#    commands
-#        if ($64BITS == 0)
-#            if ($ebx == 0)
-#	        set $eax = 0
-#                continue
-#            end
-#        else
-#            if ($rdi == 0)
-#                set $rax = 0
-#                continue
-#            end
-#        end
-#    end
-#    set $ptrace_bpnum = $bpnum
-#end
-#document ptraceme
-#Syntax: ptraceme
-#| Hook ptrace to bypass PTRACE_TRACEME anti debugging technique
-#end
-
-define rptraceme
-    if ($ptrace_bpnum != 0)
-        delete $ptrace_bpnum
-        set $ptrace_bpnum = 0
+# negative/less than (N), bit 31 of CPSR
+define cfn
+    if $ARM == 1
+    	set $tempflag = $cpsr->n
+        if ($tempflag & 1)
+            set $cpsr->n = $tempflag&~0x1
+        else
+            set $cpsr->n = $tempflag|0x1
+        end
     end
 end
-document rptraceme
-Syntax: rptraceme
-| Remove ptrace hook.
+document cfn
+Syntax: cfn
+| Change Negative/Less Than Flag.
+end
+
+
+define cfc
+# Carry/Borrow/Extend (C), bit 29
+    if $ARM == 1
+	    set $tempflag = $cpsr->c
+        if ($tempflag & 1)
+            set $cpsr->c = $tempflag&~0x1
+        else
+            set $cpsr->c = $tempflag|0x1
+        end
+     else
+        if ((unsigned int)$eflags & 1)
+            set $eflags = (unsigned int)$eflags&~0x1
+        else
+            set $eflags = (unsigned int)$eflags|0x1
+        end
+     end
+end
+document cfc
+Syntax: cfc
+| Change Carry Flag.
+end
+
+define cfp
+    if (((unsigned int)$eflags >> 2) & 1)
+        set $eflags = (unsigned int)$eflags&~0x4
+    else
+        set $eflags = (unsigned int)$eflags|0x4
+    end
+end
+document cfp
+Syntax: cfp
+| Change Parity Flag.
+end
+
+define cfa
+    if (((unsigned int)$eflags >> 4) & 1)
+        set $eflags = (unsigned int)$eflags&~0x10
+    else
+        set $eflags = (unsigned int)$eflags|0x10
+    end
+end
+document cfa
+Syntax: cfa
+| Change Auxiliary Carry Flag.
+end
+
+define cfz
+# zero (Z), bit 30
+    if $ARM == 1
+ 	    set $tempflag = $cpsr->z
+        if ($tempflag & 1)
+            set $cpsr->z = $tempflag&~0x1
+        else
+            set $cpsr->z = $tempflag|0x1
+        end
+     else
+        if (((unsigned int)$eflags >> 6) & 1)
+            set $eflags = (unsigned int)$eflags&~0x40
+        else
+            set $eflags = (unsigned int)$eflags|0x40
+        end
+     end
+end
+document cfz
+Syntax: cfz
+| Change Zero Flag.
+end
+
+define cfs
+    if (((unsigned int)$eflags >> 7) & 1)
+        set $eflags = (unsigned int)$eflags&~0x80
+    else
+        set $eflags = (unsigned int)$eflags|0x80
+    end
+end
+document cfs
+Syntax: cfs
+| Change Sign Flag.
+end
+
+define cft
+    if (((unsigned int)$eflags >>8) & 1)
+        set $eflags = (unsigned int)$eflags&~0x100
+    else
+        set $eflags = (unsigned int)$eflags|0x100
+    end
+end
+document cft
+Syntax: cft
+| Change Trap Flag.
+end
+
+define cfi
+    if (((unsigned int)$eflags >> 9) & 1)
+        set $eflags = (unsigned int)$eflags&~0x200
+    else
+        set $eflags = (unsigned int)$eflags|0x200
+    end
+end
+document cfi
+Syntax: cfi
+| Change Interrupt Flag.
+| Only privileged applications (usually the OS kernel) may modify IF.
+| This only applies to protected mode (real mode code may always modify IF).
+end
+
+define cfd
+    if (((unsigned int)$eflags >>0xA) & 1)
+        set $eflags = (unsigned int)$eflags&~0x400
+    else
+        set $eflags = (unsigned int)$eflags|0x400
+    end
+end
+document cfd
+Syntax: cfd
+| Change Direction Flag.
+end
+
+define cfo
+    if (((unsigned int)$eflags >> 0xB) & 1)
+        set $eflags = (unsigned int)$eflags&~0x800
+    else
+        set $eflags = (unsigned int)$eflags|0x800
+    end
+end
+document cfo
+Syntax: cfo
+| Change Overflow Flag.
+end
+
+# Overflow (V), bit 28
+
+define cfv
+    if $ARM == 1
+    	set $tempflag = $cpsr->v
+        if ($tempflag & 1)
+            set $cpsr->v = $tempflag&~0x1
+        else
+            set $cpsr->v = $tempflag|0x1
+        end
+    end
+end
+document cfv
+Syntax: cfv
+| Change Overflow Flag.
+end
+
+# ____________________patch___________________
+# the usual nops are mov r0,r0 for arm (0xe1a00000)
+# and mov r8,r8 in Thumb (0x46c0)
+# armv7 has other nops
+# FIXME: make sure that the interval fits the 32bits address for arm and 16bits for thumb
+# status: works, fixme
+
+define nop
+    if ($argc > 2 || $argc == 0)
+        help nop
+    end
+    if $ARM == 1
+        if ($argc == 1)
+            if ($cpsr->t &1)
+                # thumb
+                set *(short *)$arg0 = 0x46c0
+            else
+                # arm
+                set *(int *)$arg0 = 0xe1a00000
+            end
+        else
+        	set $addr = $arg0
+        	if ($cpsr->t & 1)
+    	    	# thumb
+			    while ($addr < $arg1)
+				    set *(short *)$addr = 0x46c0
+				    set $addr = $addr + 2
+		    	end
+	    	else
+		    	# arm
+		    	while ($addr < $arg1)
+			    	set *(int *)$addr = 0xe1a00000
+			    	set $addr = $addr + 4
+			    end
+		    end			
+        end 
+    else
+        if ($argc == 1)
+    	    set *(unsigned char *)$arg0 = 0x90
+        else
+        	set $addr = $arg0
+    	    while ($addr < $arg1)
+	    	    set *(unsigned char *)$addr = 0x90
+	    	    set $addr = $addr + 1
+    	    end
+        end
+    end
+end
+document nop
+Syntax: nop ADDR1 [ADDR2]
+| Patch a single byte at address ADDR1, or a series of bytes between ADDR1 and ADDR2 to a NOP (0x90) instruction.
+| ARM or Thumb code will be patched accordingly.
+end
+
+define null
+    if ( $argc >2 || $argc == 0)
+        help null
+    end
+    if ($argc == 1)
+	    set *(unsigned char *)$arg0 = 0
+    else
+	    set $addr = $arg0
+    	while ($addr < $arg1)
+	        set *(unsigned char *)$addr = 0
+		    set $addr = $addr +1
+	    end
+    end
+end
+document null
+Syntax: null ADDR1 [ADDR2]
+| Patch a single byte at address ADDR1 to NULL (0x00), or a series of bytes between ADDR1 and ADDR2.
+end
+# FIXME: thumb breakpoint ?
+
+define int3
+    if $argc != 1
+        help int3
+    else
+        if $ARM == 1
+            set $ORIGINAL_INT3 = *(unsigned int *)$arg0
+            set $ORIGINAL_INT3ADDRESS = $arg0
+            set *(unsigned int*)$arg0 = 0xe7ffdefe
+        else
+            # save original bytes and address
+            set $ORIGINAL_INT3 = *(unsigned char *)$arg0
+            set $ORIGINAL_INT3ADDRESS = $arg0
+            # patch
+            set *(unsigned char *)$arg0 = 0xCC
+        end
+    end
+end
+document int3
+Syntax int3 ADDR
+| Patch byte at address ADDR to an INT3 (0xCC) instruction or the equivalent software breakpoint for ARM.
+end
+
+define rint3
+    if $ARM == 1
+      	set *(unsigned int *)$ORIGINAL_INT3ADDRESS = $ORIGINAL_INT3
+	    set $pc = $ORIGINAL_INT3ADDRESS
+    else
+    	set *(unsigned char *)$ORIGINAL_INT3ADDRESS = $ORIGINAL_INT3
+    	if ($64BITS == 1)
+        	set $rip = $ORIGINAL_INT3ADDRESS
+    	else
+    	    set $eip = $ORIGINAL_INT3ADDRESS
+    	end
+	end
+end
+document rint3
+Syntax: rint3
+| Restore the original byte previous to int3 patch issued with "int3" command.
+end
+
+define patch
+    if $argc != 3
+        help patch
+    end
+    set $patchaddr = $arg0
+    set $patchbytes = $arg1
+    set $patchsize = $arg2
+    if ($patchsize == 1)
+        set *(unsigned char*)$patchaddr = $patchbytes
+    end
+    if ($patchsize == 2)
+        set $lendianbytes = (unsigned short)(($patchbytes << 8) | ($patchbytes >> 8))
+        set *(unsigned short*)$patchaddr = $lendianbytes
+    end
+    if ($patchsize == 4)
+        set $lendianbytes = (unsigned int)( (($patchbytes << 8) & 0xFF00FF00 ) | (($patchbytes >> 8) & 0xFF00FF ))
+        set $lendianbytes = (unsigned int)($lendianbytes << 0x10 | $lendianbytes >> 0x10)
+        set *(unsigned int*)$patchaddr = $lendianbytes
+    end
+    if ($patchsize == 8)
+        set $lendianbytes = (unsigned long long)( (($patchbytes << 8) & 0xFF00FF00FF00FF00ULL ) | (($patchbytes >> 8) & 0x00FF00FF00FF00FFULL ) )
+        set $lendianbytes = (unsigned long long)( (($lendianbytes << 0x10) & 0xFFFF0000FFFF0000ULL ) | (($lendianbytes >> 0x10) & 0x0000FFFF0000FFFFULL ) )
+        set $lendianbytes = (unsigned long long)( ($lendianbytes << 0x20) | ($lendianbytes >> 0x20) )
+        set *(unsigned long long*)$patchaddr = $lendianbytes
+    end
+end
+document patch
+Syntax: patch address bytes size
+| Patch a given address, converting the bytes to little-endian.
+| Assumes input bytes are unsigned values and should be in hexadecimal format (0x...).
+| Size must be 1, 2, 4, 8 bytes.
+| Main purpose is to be used with the output from the asm commands.
 end
 
 # ____________________misc____________________
@@ -3323,6 +3046,226 @@ Syntax: assemble_gas
 | Assemble instructions to binary opcodes. Uses GNU as and objdump.
 end
 
+define dis
+    if $argc == 0
+        disassemble
+    end
+    if $argc == 1
+        disassemble $arg0
+    end
+    if $argc == 2
+        disassemble $arg0 $arg1
+    end 
+    if $argc > 2
+        help dis
+    end
+end
+document dis
+Syntax: dis <ADDR1> <ADDR2>
+| Disassemble a specified section of memory.
+| Default is to disassemble the function surrounding the PC (program counter) of selected frame. 
+| With one argument, ADDR1, the function surrounding this address is dumped.
+| Two arguments are taken as a range of memory to dump.
+end
+
+# __________hex/ascii dump an address_________
+
+define ascii_char
+    if $argc != 1
+        help ascii_char
+    else
+        # thanks elaine :)
+        set $_c = *(unsigned char *)($arg0)
+        if ($_c < 0x20 || $_c > 0x7E)
+            printf "."
+        else
+            printf "%c", $_c
+        end
+    end
+end
+document ascii_char
+Syntax: ascii_char ADDR
+| Print ASCII value of byte at address ADDR.
+| Print "." if the value is unprintable.
+end
+
+define hex_quad
+    if $argc != 1
+        help hex_quad
+    else
+        printf "%02X %02X %02X %02X %02X %02X %02X %02X", \
+               *(unsigned char*)($arg0), *(unsigned char*)($arg0 + 1),     \
+               *(unsigned char*)($arg0 + 2), *(unsigned char*)($arg0 + 3), \
+               *(unsigned char*)($arg0 + 4), *(unsigned char*)($arg0 + 5), \
+               *(unsigned char*)($arg0 + 6), *(unsigned char*)($arg0 + 7)
+    end
+end
+document hex_quad
+Syntax: hex_quad ADDR
+| Print eight hexadecimal bytes starting at address ADDR.
+end
+
+define hexdump_aux
+    if $argc != 1
+        help hexdump_aux
+    else
+    	color_bold
+        if ($64BITS == 1)
+            printf "0x%016lX : ", $arg0
+        else
+            printf "0x%08X : ", $arg0
+        end
+        color_reset
+        hex_quad $arg0
+        color_bold
+        printf " - "
+        color_reset
+        hex_quad $arg0+8
+        printf " "
+        color_bold
+        ascii_char $arg0+0x0
+        ascii_char $arg0+0x1
+        ascii_char $arg0+0x2
+        ascii_char $arg0+0x3
+        ascii_char $arg0+0x4
+        ascii_char $arg0+0x5
+        ascii_char $arg0+0x6
+        ascii_char $arg0+0x7
+        ascii_char $arg0+0x8
+        ascii_char $arg0+0x9
+        ascii_char $arg0+0xA
+        ascii_char $arg0+0xB
+        ascii_char $arg0+0xC
+        ascii_char $arg0+0xD
+        ascii_char $arg0+0xE
+        ascii_char $arg0+0xF
+        color_reset
+        printf "\n"
+    end
+end
+document hexdump_aux
+Syntax: hexdump_aux ADDR
+| Display a 16-byte hex/ASCII dump of memory at address ADDR.
+end
+
+define hexdump
+    if $argc == 1
+        hexdump_aux $arg0
+	else
+		if $argc == 2
+			set $_count = 0
+			while ($_count < $arg1)
+				set $_i = ($_count * 0x10)
+				hexdump_aux $arg0+$_i
+				set $_count++
+			end
+		else
+			help hexdump
+		end
+    end
+end
+document hexdump
+Syntax: hexdump ADDR <NR_LINES>
+| Display a 16-byte hex/ASCII dump of memory starting at address ADDR.
+| Optional parameter is the number of lines to display if you want more than one. 
+end
+
+define ddump
+    if $argc != 1
+        help ddump
+    else
+        color $COLOR_SEPARATOR
+        if $ARM == 1
+            printf "[0x%08X]", $data_addr
+        else
+            if ($64BITS == 1)
+                printf "[0x%04X:0x%016lX]", $ds, $data_addr
+            else
+                printf "[0x%04X:0x%08X]", $ds, $data_addr
+            end
+        end
+    	color $COLOR_SEPARATOR
+    	printf "------------------------"
+        printf "-------------------------------"
+        if ($64BITS == 1)
+            printf "-------------------------------------"
+	    end
+	    color_bold
+	    color $COLOR_SEPARATOR
+	    printf "[data]\n"
+        color_reset
+        set $_count = 0
+        while ($_count < $arg0)
+            set $_i = ($_count * 0x10)
+            hexdump $data_addr+$_i
+            set $_count++
+        end
+    end
+end
+document ddump
+Syntax: ddump NUM
+| Display NUM lines of hexdump for address in $data_addr global variable.
+end
+
+define dd
+    if $argc != 1
+        help dd
+    else
+        set $data_addr = $arg0
+        ddump 3 
+    end
+end
+document dd
+Syntax: dd ADDR
+| Display 16 lines of a hex dump of address starting at ADDR.
+end
+
+define datawin
+    if $ARM == 1
+        if ((($r0 >> 0x18) == 0x40) || (($r0 >> 0x18) == 0x08) || (($r0 >> 0x18) == 0xBF))
+            set $data_addr = $r0
+        else
+            if ((($r1 >> 0x18) == 0x40) || (($r1 >> 0x18) == 0x08) || (($r1 >> 0x18) == 0xBF))
+                set $data_addr = $r1
+            else
+                if ((($r2 >> 0x18) == 0x40) || (($r2 >> 0x18) == 0x08) || (($r2 >> 0x18) == 0xBF))
+                    set $data_addr = $r2
+                else
+                    set $data_addr = $sp
+                end
+            end
+        end
+################################# X86
+    else
+        if ($64BITS == 1)
+            if ((($rsi >> 0x18) == 0x40) || (($rsi >> 0x18) == 0x08) || (($rsi >> 0x18) == 0xBF))
+                set $data_addr = $rsi
+            else
+                if ((($rdi >> 0x18) == 0x40) || (($rdi >> 0x18) == 0x08) || (($rdi >> 0x18) == 0xBF))
+                    set $data_addr = $rdi
+                else
+                    if ((($rax >> 0x18) == 0x40) || (($rax >> 0x18) == 0x08) || (($rax >> 0x18) == 0xBF))
+                        set $data_addr = $rax
+                    else
+                        set $data_addr = $rsp
+                    end
+                end
+            end
+        end
+    end
+    ddump $CONTEXTSIZE_DATA
+end
+document datawin
+Syntax: datawin
+| Display valid address from one register in data window.
+| Registers to choose are: esi, edi, eax, or esp.
+end
+################################
+##### ALERT ALERT ALERT ########
+################################
+# Huge mess going here :) HAHA #
+################################
+
 #_____________dump file________________
 
 define dump_hexfile
@@ -3343,32 +3286,37 @@ Syntax: dump_binfile FILENAME ADDR1 ADDR2
 | The range is specified by ADDR1 and ADDR2 addresses.
 end
 
-define dumpmacho
-    if $argc != 2
-        help dumpmacho
-    end
-    set $headermagic = *$arg0
-    # the || operator isn't working as it should, wtf!!!
-    if $headermagic != 0xfeedface
-        if $headermagic != 0xfeedfacf
-            printf "[Error] Target address doesn't contain a valid Mach-O binary!\n"
-            help dumpmacho
-        end
-    end
-    set $headerdumpsize = *($arg0+0x14)
-    if $headermagic == 0xfeedface
-        dump memory $arg1 $arg0 ($arg0+0x1c+$headerdumpsize)
-    end
-    if $headermagic == 0xfeedfacf
-        dump memory $arg1 $arg0 ($arg0+0x20+$headerdumpsize)
+#___________dump memory_______________
+
+define header
+    if $argc != 1
+        help header
+    else
+        dump memory /tmp/gdbinit_header_dump $arg0 $arg0 + 4096
+        shell /usr/bin/otool -h /tmp/gdbinit_header_dump
+        shell /bin/rm -f /tmp/gdbinit_header_dump
     end
 end
-document dumpmacho
-Syntax: dumpmacho STARTADDRESS FILENAME
-| Dump the Mach-O header to a file.
-| You need to input the start address (use info shared command to find it).
+document header
+Syntax: header MACHO_HEADER_START_ADDRESS
+| Dump the Mach-O header located at given address
 end
 
+define loadcmds
+    if $argc != 1
+        help loadcmds
+    else
+        # this size should be good enough for most binaries
+        dump memory /tmp/gdbinit_header_dump $arg0 $arg0 + 4096 * 10
+        shell /usr/bin/otool -l /tmp/gdbinit_header_dump
+        shell /bin/rm -f /tmp/gdbinit_header_dump
+    end
+end
+document loadcmds
+Syntax: loadcmds MACHO_HEADER_START_ADDRESS
+| Dump the Mach-O load commands
+end
+#EOF
 
 # _________________user tips_________________
 # The 'tips' command is used to provide tutorial-like info to the user
@@ -3473,27 +3421,6 @@ Syntax: tip_display
 | Tips on automatically displaying values when a program stops.
 end
 
-#____________ bunch of semi-useless commands____________
-# enable and disable shortcuts for stop-on-solib-events fantastic trick!
-
-define enablesolib
-	set stop-on-solib-events 1
-	printf "Stop-on-solib-events is enabled!\n"
-end
-document enablesolib
-Syntax: enablesolib
-| Shortcut to enable stop-on-solib-events trick.
-end
-
-define disablesolib
-	set stop-on-solib-events 0
-	printf "Stop-on-solib-events is disabled!\n"
-end
-document disablesolib
-Syntax: disablesolib
-| Shortcut to disable stop-on-solib-events trick.
-end
-
 #____________enable commands for different displays__________
 
 define enableobjectivec
@@ -3526,6 +3453,13 @@ end
 document enabledatawin
 Syntax: enabledatawin
 | Enable display of data window in the context window.
+end
+
+define enablecolorprompt
+    set prompt \033[31mgdb$ \033[0m
+end
+document enablecolorprompt
+| Enable color prompt
 end
 
 # __________disable commands for different displays_________
@@ -3563,6 +3497,13 @@ end
 document disabledatawin
 Syntax: disabledatawin
 | Disable display of data window in the context window.
+end
+
+define disablecolorprompt
+    set prompt gdb$
+end
+document disablecolorprompt
+| Remove color from prompt
 end
 
 #____________other variable control______________
@@ -3661,6 +3602,107 @@ define 64bits
     set $64BITS = 1
 end
 
+#____________ bunch of semi-useless commands____________
+# enable and disable shortcuts for stop-on-solib-events fantastic trick!
+
+define enablesolib
+	set stop-on-solib-events 1
+	printf "Stop-on-solib-events is enabled!\n"
+end
+document enablesolib
+Syntax: enablesolib
+| Shortcut to enable stop-on-solib-events trick.
+end
+
+define disablesolib
+	set stop-on-solib-events 0
+	printf "Stop-on-solib-events is disabled!\n"
+end
+document disablesolib
+Syntax: disablesolib
+| Shortcut to disable stop-on-solib-events trick.
+end
+
+#define ptraceme
+#    catch syscall ptrace
+#    commands
+#        if ($64BITS == 0)
+#            if ($ebx == 0)
+#	        set $eax = 0
+#                continue
+#            end
+#        else
+#            if ($rdi == 0)
+#                set $rax = 0
+#                continue
+#            end
+#        end
+#    end
+#    set $ptrace_bpnum = $bpnum
+#end
+#document ptraceme
+#Syntax: ptraceme
+#| Hook ptrace to bypass PTRACE_TRACEME anti debugging technique
+#end
+
+define rptraceme
+    if ($ptrace_bpnum != 0)
+        delete $ptrace_bpnum
+        set $ptrace_bpnum = 0
+    end
+end
+document rptraceme
+Syntax: rptraceme
+| Remove ptrace hook.
+end
+
+define objc_symbols
+	set logging redirect on
+	set logging file /tmp/gdb-objc_symbols
+	set logging on
+	info target
+	set logging off
+    # XXX: define paths for objc-symbols and SymTabCreator
+	shell target="$(/usr/bin/head -1 /tmp/gdb-objc_symbols | /usr/bin/head -1 | /usr/bin/awk -F '"' '{ print $2 }')"; objc-symbols "$target" | SymTabCreator -o /tmp/gdb-symtab
+	set logging on
+	add-symbol-file /tmp/gdb-symtab
+	set logging off
+    shell /bin/rm -f /tmp/gdb-objc_symbols
+end
+document objc_symbols
+Syntax: objc_symbols
+| Loads stripped objc symbols into gdb using objc-symbols and SymTabCreator
+| See http://stackoverflow.com/questions/17554070/import-class-dump-info-into-gdb
+| and https://github.com/0xced/class-dump/tree/objc-symbols (for the required utils)
+end
+
+define dumpmacho
+    if $argc != 2
+        help dumpmacho
+    end
+    set $headermagic = *$arg0
+    # the || operator isn't working as it should, wtf!!!
+    if $headermagic != 0xfeedface
+        if $headermagic != 0xfeedfacf
+            printf "[Error] Target address doesn't contain a valid Mach-O binary!\n"
+            help dumpmacho
+        end
+    end
+    set $headerdumpsize = *($arg0+0x14)
+    if $headermagic == 0xfeedface
+        dump memory $arg1 $arg0 ($arg0+0x1c+$headerdumpsize)
+    end
+    if $headermagic == 0xfeedfacf
+        dump memory $arg1 $arg0 ($arg0+0x20+$headerdumpsize)
+    end
+end
+document dumpmacho
+Syntax: dumpmacho STARTADDRESS FILENAME
+| Dump the Mach-O header to a file.
+| You need to input the start address (use info shared command to find it).
+end
+
+
 define ioskdp
     set $SHOW_CONTEXT = 0
     set $SHOW_NEST_INSN = 0
@@ -3673,52 +3715,6 @@ end
 define resetkdp
     set $KDP64BITS = -1
 end
-
-define disablecolorprompt
-    set prompt gdb$
-end
-document disablecolorprompt
-| Remove color from prompt
-end
-
-define enablecolorprompt
-    set prompt \033[31mgdb$ \033[0m
-end
-document enablecolorprompt
-| Enable color prompt
-end
-
-#___________dump memory_______________
-
-define header
-    if $argc != 1
-        help header
-    else
-        dump memory /tmp/gdbinit_header_dump $arg0 $arg0 + 4096
-        shell /usr/bin/otool -h /tmp/gdbinit_header_dump
-        shell /bin/rm -f /tmp/gdbinit_header_dump
-    end
-end
-document header
-Syntax: header MACHO_HEADER_START_ADDRESS
-| Dump the Mach-O header located at given address
-end
-
-define loadcmds
-    if $argc != 1
-        help loadcmds
-    else
-        # this size should be good enough for most binaries
-        dump memory /tmp/gdbinit_header_dump $arg0 $arg0 + 4096 * 10
-        shell /usr/bin/otool -l /tmp/gdbinit_header_dump
-        shell /bin/rm -f /tmp/gdbinit_header_dump
-    end
-end
-document loadcmds
-Syntax: loadcmds MACHO_HEADER_START_ADDRESS
-| Dump the Mach-O load commands
-end
-#EOF
 
 # Older change logs:
 #
